@@ -28,8 +28,6 @@
     }
   ],
   "permissions": [
-    "bluetooth",
-    "bluetoothDevices",
     "storage",
     "activeTab"
   ],

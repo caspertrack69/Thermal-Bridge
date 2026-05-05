@@ -100,7 +100,10 @@
         <span>Print Struk</span>
         <button class="copy-btn" data-target="code1">Salin</button>
       </div>
-      <pre id="code1"><code>const res = await window.ThermalBridge.print({
+      <pre id="code1"><code>// Panggil sekali dari klik user untuk pairing awal:
+await window.ThermalBridge.connect();
+
+const res = await window.ThermalBridge.print({
   header: {
     title:      "Toko Saya",
     subtitle:   "Jl. Merdeka No. 1",
