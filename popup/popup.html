@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thermal Bridge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ── Header ───────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="7" width="20" height="14" rx="2"/>
+        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+        <line x1="12" y1="12" x2="12" y2="16"/>
+        <line x1="10" y1="14" x2="14" y2="14"/>
+      </svg>
+    </div>
+    <div>
+      <h1 class="header-title">Thermal Bridge</h1>
+      <p class="header-sub">v1.0.0 · ESC/POS over BLE</p>
+    </div>
+  </header>
+
+  <!-- ── Status pill ──────────────────────────────────────── -->
+  <div class="status-bar">
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">Memuat...</span>
+    <span class="status-device" id="statusDevice"></span>
+  </div>
+
+  <!-- ── Tabs ─────────────────────────────────────────────── -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="printer">Printer</button>
+    <button class="tab" data-tab="whitelist">Whitelist</button>
+    <button class="tab" data-tab="api">API</button>
+  </nav>
+
+  <!-- ── Tab: Printer ─────────────────────────────────────── -->
+  <section class="tab-content active" id="tab-printer">
+
+    <div class="card" id="deviceCard">
+      <p class="card-label">Perangkat Tersambung</p>
+      <p class="card-value" id="deviceName">—</p>
+      <p class="card-sub"  id="deviceId">Belum ada perangkat</p>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btnConnect">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+        Scan &amp; Sambungkan
+      </button>
+      <button class="btn btn-ghost" id="btnDisconnect" disabled>
+        Putuskan
+      </button>
+    </div>
+
+    <button class="btn btn-outline w-full" id="btnTest">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <rect x="6" y="14" width="12" height="8"/>
+      </svg>
+      Cetak Test Print
+    </button>
+
+    <div class="toast" id="toast"></div>
+  </section>
+
+  <!-- ── Tab: Whitelist ────────────────────────────────────── -->
+  <section class="tab-content" id="tab-whitelist">
+    <p class="section-desc">
+      Hanya domain berikut yang diizinkan mengirim perintah cetak.
+      Kosongkan daftar untuk mengizinkan semua domain.
+    </p>
+
+    <div class="input-group">
+      <input class="input" id="whitelistInput" type="text"
+             placeholder="contoh.com atau 192.168.1.10" />
+      <button class="btn btn-primary" id="btnAddDomain">Tambah</button>
+    </div>
+
+    <ul class="domain-list" id="domainList"></ul>
+    <p class="empty-hint" id="whitelistEmpty">Semua domain diizinkan.</p>
+  </section>
+
+  <!-- ── Tab: API ──────────────────────────────────────────── -->
+  <section class="tab-content" id="tab-api">
+    <p class="section-desc">Integrasikan dari halaman web Anda:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span>Print Struk</span>
+        <button class="copy-btn" data-target="code1">Salin</button>
+      </div>
+      <pre id="code1"><code>const res = await window.ThermalBridge.print({
+  header: {
+    title:      "Toko Saya",
+    subtitle:   "Jl. Merdeka No. 1",
+    cashier:    "Budi",
+    receipt_no: "INV-001"
+  },
+  items: [
+    { name: "Kopi Susu", qty: 2, price: 18000 },
+    { name: "Roti Bakar", qty: 1, price: 12000 }
+  ],
+  subtotal: 48000,
+  tax:       4800,
+  total:    52800,
+  payment: {
+    method: "CASH",
+    amount: 60000,
+    change:  7200
+  },
+  footer: "Terima kasih!"
+});
+
+if (!res.success) console.error(res.message);</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span>Cek Status</span>
+        <button class="copy-btn" data-target="code2">Salin</button>
+      </div>
+      <pre id="code2"><code>const { status, device } =
+  await window.ThermalBridge.status();
+// status: 'connected' | 'disconnected' | 'error'
+
+// Atau listen event:
+window.addEventListener('thermalbridge:status',
+  (e) => console.log(e.detail));
+</code></pre>
+    </div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

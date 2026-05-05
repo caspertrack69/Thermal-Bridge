@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Thermal Bridge",
+  "version": "1.0.0",
+  "description": "Jembatan Web-to-Bluetooth untuk printer thermal ESC/POS. Silent printing tanpa dialog sistem.",
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Thermal Bridge",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "bluetooth",
+    "bluetoothDevices",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [],
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/escpos-encoder.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
