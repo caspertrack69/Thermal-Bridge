@@ -195,6 +195,31 @@ body {
 /* ── Section desc ────────────────────────────────────────────── */
 .section-desc { font-size: 12px; color: var(--text-sub); line-height: 1.6; }
 
+.api-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.api-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent2);
+  background: color-mix(in srgb, var(--accent2) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent2) 30%, transparent);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.api-note {
+  font-size: 11px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 24%, transparent);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+
 /* ── Input Group ─────────────────────────────────────────────── */
 .input-group { display: flex; gap: 8px; }
 

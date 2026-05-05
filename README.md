@@ -14,6 +14,14 @@
 
 ---
 
+## Preview
+
+![Preview 1](previews/1.png)
+![Preview 2](previews/2.png)
+![Preview 3](previews/3.png)
+
+---
+
 ## Struktur File
 
 ```

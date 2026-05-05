@@ -1,10 +1,17 @@
 'use strict';
 
+if (!globalThis.__thermalBridgeContentLoaded) {
+globalThis.__thermalBridgeContentLoaded = true;
+
 const SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
 const CHAR_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
 const NORDIC_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const NORDIC_TX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-const CHUNK_SIZE = 512;
+const DEFAULT_CHUNK_SIZE = 180;
+const MIN_CHUNK_SIZE = 20;
+const MAX_WRITE_RETRIES = 5;
+const CHUNK_DELAY_MS = 30;
+const RETRY_DELAY_MS = 120;
 
 let bluetoothDevice = null;
 let gattServer = null;
@@ -197,15 +204,99 @@ async function ensureConnected({ allowChooser }) {
   await connectToDevice({ allowChooser });
 }
 
+function getWriteMode(characteristic) {
+  const properties = characteristic?.properties ?? {};
+
+  if (
+    properties.writeWithoutResponse &&
+    typeof characteristic.writeValueWithoutResponse === 'function'
+  ) {
+    return 'without-response';
+  }
+
+  if (properties.write && typeof characteristic.writeValueWithResponse === 'function') {
+    return 'with-response';
+  }
+
+  if (typeof characteristic.writeValueWithoutResponse === 'function') {
+    return 'without-response';
+  }
+
+  if (typeof characteristic.writeValueWithResponse === 'function') {
+    return 'with-response';
+  }
+
+  throw new Error('Characteristic printer tidak mendukung operasi tulis.');
+}
+
+async function writeSingleChunk(characteristic, chunk, mode) {
+  if (mode === 'without-response') {
+    await characteristic.writeValueWithoutResponse(chunk);
+    return;
+  }
+
+  await characteristic.writeValueWithResponse(chunk);
+}
+
+function isRecoverableGattWriteError(error) {
+  const message = String(error?.message ?? '').toLowerCase();
+  return (
+    message.includes('gatt operation failed') ||
+    message.includes('unknown reason') ||
+    message.includes('networkerror') ||
+    message.includes('not connected') ||
+    message.includes('connection')
+  );
+}
+
 async function writeBytes(bytes) {
   if (!printCharacteristic) {
     throw new Error('Printer tidak terhubung.');
   }
 
-  for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
-    const chunk = bytes.slice(offset, offset + CHUNK_SIZE);
-    await printCharacteristic.writeValueWithoutResponse(chunk);
-    await sleep(20);
+  let chunkSize = DEFAULT_CHUNK_SIZE;
+  let mode = getWriteMode(printCharacteristic);
+
+  for (let offset = 0; offset < bytes.length; ) {
+    let written = false;
+    let lastError = null;
+    let nextOffset = offset;
+
+    for (let attempt = 1; attempt <= MAX_WRITE_RETRIES; attempt += 1) {
+      try {
+        if (!gattServer?.connected || !printCharacteristic) {
+          await ensureConnected({ allowChooser: false });
+          mode = getWriteMode(printCharacteristic);
+        }
+
+        const chunkEnd = Math.min(offset + chunkSize, bytes.length);
+        const chunk = bytes.slice(offset, chunkEnd);
+        await writeSingleChunk(printCharacteristic, chunk, mode);
+        nextOffset = chunkEnd;
+        written = true;
+        break;
+      } catch (error) {
+        lastError = error;
+
+        if (chunkSize > MIN_CHUNK_SIZE) {
+          chunkSize = Math.max(MIN_CHUNK_SIZE, Math.floor(chunkSize / 2));
+        }
+
+        if (!isRecoverableGattWriteError(error) && attempt >= 2) {
+          break;
+        }
+
+        await sleep(RETRY_DELAY_MS);
+      }
+    }
+
+    if (!written) {
+      const reason = lastError?.message ?? 'Unknown write error';
+      throw new Error(`Gagal menulis data BLE: ${reason}`);
+    }
+
+    offset = nextOffset;
+    await sleep(CHUNK_DELAY_MS);
   }
 }
 
@@ -287,9 +378,13 @@ async function handleBridgeRequest(message) {
     }
     case 'THERMAL_RAW': {
       const bytes = normalizeRawBytes(message.bytes);
-      await ensureConnected({ allowChooser: false });
-      await writeBytes(bytes);
-      return { success: true };
+      return await new Promise((resolve, reject) => {
+        enqueue({
+          getBytes: async () => bytes,
+          resolve,
+          reject,
+        });
+      });
     }
     default:
       return { success: false, message: `Unknown message type: ${message.type}` };
@@ -374,4 +469,5 @@ function testReceiptPayload() {
     footer: 'Terima kasih sudah menggunakan\nThermal Bridge!',
     width: 32,
   };
+}
 }

@@ -58,20 +58,57 @@ async function getActiveTabId() {
   if (!tab?.id) {
     throw new Error('Tab aktif tidak ditemukan.');
   }
-  return tab.id;
+  return tab;
+}
+
+function isRestrictedUrl(url) {
+  if (!url) {
+    return true;
+  }
+
+  const blockedSchemes = [
+    'chrome://',
+    'edge://',
+    'about:',
+    'chrome-extension://',
+    'moz-extension://',
+    'devtools://',
+    'view-source:',
+  ];
+
+  return blockedSchemes.some((prefix) => url.startsWith(prefix));
+}
+
+async function ensureContentScript(tab) {
+  if (isRestrictedUrl(tab.url)) {
+    throw new Error(
+      'Tab ini tidak bisa diakses extension. Buka halaman web biasa (http/https), lalu coba lagi.'
+    );
+  }
+
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ['content/content-script.js'],
+  });
 }
 
 async function sendToActiveTab(message) {
   try {
-    const tabId = await getActiveTabId();
-    const response = await chrome.tabs.sendMessage(tabId, message);
+    const tab = await getActiveTabId();
+    const response = await chrome.tabs.sendMessage(tab.id, message);
     return response ?? { success: false, message: 'Tidak ada respons dari halaman.' };
-  } catch (error) {
+  } catch (firstError) {
+    try {
+      const tab = await getActiveTabId();
+      await ensureContentScript(tab);
+      const response = await chrome.tabs.sendMessage(tab.id, message);
+      return response ?? { success: false, message: 'Tidak ada respons dari halaman.' };
+    } catch (secondError) {
     return {
       success: false,
-      message:
-        'Halaman target belum siap. Buka/refresh halaman web yang ingin dipakai print lalu coba lagi.',
+      message: secondError?.message ?? firstError?.message ?? 'Gagal menghubungi halaman target.',
     };
+    }
   }
 }
 
