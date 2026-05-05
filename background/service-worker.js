@@ -51,16 +51,33 @@ function getBluetoothApi() {
   return api;
 }
 
+async function tryGetKnownDevice(bluetooth, deviceId) {
+  if (!deviceId || typeof bluetooth.getDevices !== 'function') {
+    return null;
+  }
+
+  try {
+    const devices = await bluetooth.getDevices();
+    return devices.find((device) => device.id === deviceId) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function connectToDevice(deviceId = null) {
   try {
     broadcastStatus('connecting');
     const bluetooth = getBluetoothApi();
+    const supportsGetDevices = typeof bluetooth.getDevices === 'function';
 
     if (deviceId) {
-      const devices = await bluetooth.getDevices();
-      const saved = devices.find((device) => device.id === deviceId);
+      const saved = await tryGetKnownDevice(bluetooth, deviceId);
       if (saved) {
         bluetoothDevice = saved;
+      } else if (!supportsGetDevices) {
+        throw new Error(
+          'Browser ini tidak mendukung bluetooth.getDevices(), jadi perangkat tersimpan tidak bisa dipulihkan otomatis. Pair ulang dari popup.'
+        );
       }
     }
 

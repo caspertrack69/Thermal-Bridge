@@ -116,6 +116,19 @@ function getBluetoothApi() {
   return api;
 }
 
+async function tryGetKnownDevice(bluetooth, deviceId) {
+  if (!deviceId || typeof bluetooth.getDevices !== 'function') {
+    return null;
+  }
+
+  try {
+    const knownDevices = await bluetooth.getDevices();
+    return knownDevices.find((item) => item.id === deviceId) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function savePairedDevice(device) {
   await chrome.storage.local.set({
     pairedDevice: { id: device.id, name: device.name ?? 'Printer' },
@@ -139,17 +152,20 @@ function broadcastStatus(next, extra = {}) {
 async function connectToDevice({ allowChooser }) {
   broadcastStatus('connecting');
   const bluetooth = getBluetoothApi();
+  const paired = await getPairedDevice();
+  const supportsGetDevices = typeof bluetooth.getDevices === 'function';
 
   if (!bluetoothDevice) {
-    const paired = await getPairedDevice();
-    if (paired?.id) {
-      const known = await bluetooth.getDevices();
-      bluetoothDevice = known.find((item) => item.id === paired.id) ?? null;
-    }
+    bluetoothDevice = await tryGetKnownDevice(bluetooth, paired?.id);
   }
 
   if (!bluetoothDevice) {
     if (!allowChooser) {
+      if (paired?.id && !supportsGetDevices) {
+        throw new Error(
+          'Browser ini tidak mendukung bluetooth.getDevices(). Klik Connect lagi dari popup untuk memilih printer.'
+        );
+      }
       throw new Error(
         'Printer belum dipasangkan. Panggil ThermalBridge.connect() dari tombol klik pengguna.'
       );
