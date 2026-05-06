@@ -69,6 +69,31 @@
       Cetak Test Print
     </button>
 
+    <div class="card">
+      <p class="card-label">Cetak Dari Halaman Aktif</p>
+      <p class="card-sub">
+        Host: <span id="selectorHost">-</span>
+      </p>
+      <p class="section-desc">
+        Kosongkan selector untuk auto-detect. Jika hasil belum tepat, isi selector elemen nota
+        (contoh: <code>#receipt</code> atau <code>.invoice-wrap</code>).
+      </p>
+
+      <div class="input-group">
+        <input
+          class="input"
+          id="receiptSelectorInput"
+          type="text"
+          placeholder="Auto detect (opsional)"
+        />
+        <button class="btn btn-ghost" id="btnSaveSelector">Simpan</button>
+      </div>
+
+      <button class="btn btn-outline w-full" id="btnPrintPage">
+        Cetak Nota Halaman
+      </button>
+    </div>
+
     <div class="toast" id="toast"></div>
   </section>
 

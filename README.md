@@ -121,6 +121,27 @@ window.addEventListener('thermalbridge:status', (e) => {
 
 ---
 
+## Mode Tanpa Integrasi API (Cetak Dari Halaman Aktif)
+
+Kalau software web belum integrasi `window.ThermalBridge`, extension tetap bisa dipakai:
+
+1. Buka halaman nota/struk di tab aktif.
+2. Klik popup extension, sambungkan printer dulu jika belum.
+3. Di tab **Printer**, pakai fitur **Cetak Dari Halaman Aktif**.
+4. Biarkan field selector kosong untuk auto-detect, atau isi selector CSS (contoh: `#receipt`, `.invoice-wrap`) agar ekstraksi lebih akurat.
+5. Klik **Cetak Nota Halaman**.
+
+Catatan:
+- Extension mengekstrak teks DOM lalu merender ulang ke format thermal yang terstandarisasi.
+- Tata letak kompleks (tabel custom/canvas) kadang perlu selector spesifik.
+
+Standarisasi default:
+- Extension sekarang mencoba parsing otomatis item + total dari teks halaman.
+- Hasil cetak memakai template struk profesional (header, tabel item, ringkasan total, footer).
+- Jika parsing item gagal, extension fallback ke template detail teks yang tetap rapi.
+
+---
+
 ## Whitelist Domain
 
 Untuk keamanan, hanya domain yang terdaftar yang boleh mengirim perintah cetak.

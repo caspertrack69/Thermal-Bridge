@@ -9,8 +9,21 @@ const STATUS_LABELS = {
   error: 'Error',
 };
 
+const TEST_PRINT_BUTTON_HTML = `
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+    <rect x="6" y="14" width="12" height="8"></rect>
+  </svg>
+  Cetak Test Print
+`;
+
+const PAGE_PRINT_BUTTON_HTML = 'Cetak Nota Halaman';
+const RECEIPT_SELECTORS_KEY = 'receiptSelectors';
+
 let domains = [];
 let toastTimer;
+let activeHost = '';
 
 document.querySelectorAll('.tab').forEach((tab) => {
   tab.addEventListener('click', () => {
@@ -52,7 +65,7 @@ function applyStatus({ status, device }) {
   $('btnDisconnect').disabled = status !== 'connected';
 }
 
-async function getActiveTabId() {
+async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
   if (!tab?.id) {
@@ -94,12 +107,12 @@ async function ensureContentScript(tab) {
 
 async function sendToActiveTab(message) {
   try {
-    const tab = await getActiveTabId();
+    const tab = await getActiveTab();
     const response = await chrome.tabs.sendMessage(tab.id, message);
     return response ?? { success: false, message: 'Tidak ada respons dari halaman.' };
   } catch (firstError) {
     try {
-      const tab = await getActiveTabId();
+      const tab = await getActiveTab();
       await ensureContentScript(tab);
       const response = await chrome.tabs.sendMessage(tab.id, message);
       return response ?? { success: false, message: 'Tidak ada respons dari halaman.' };
@@ -110,6 +123,71 @@ async function sendToActiveTab(message) {
     };
     }
   }
+}
+
+function extractHostname(url) {
+  try {
+    const value = new URL(url);
+    return value.hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function getSelectorMap(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  return { ...raw };
+}
+
+function updatePagePrintControls() {
+  const enabled = Boolean(activeHost);
+  $('selectorHost').textContent = activeHost || 'Tidak tersedia';
+  $('btnSaveSelector').disabled = !enabled;
+  $('btnPrintPage').disabled = !enabled;
+}
+
+async function loadPagePrintProfile() {
+  try {
+    const tab = await getActiveTab();
+    if (isRestrictedUrl(tab.url)) {
+      activeHost = '';
+      $('receiptSelectorInput').value = '';
+      updatePagePrintControls();
+      return;
+    }
+
+    activeHost = extractHostname(tab.url);
+    const data = await chrome.storage.local.get(RECEIPT_SELECTORS_KEY);
+    const map = getSelectorMap(data[RECEIPT_SELECTORS_KEY]);
+    $('receiptSelectorInput').value = activeHost ? map[activeHost] ?? '' : '';
+    updatePagePrintControls();
+  } catch {
+    activeHost = '';
+    $('receiptSelectorInput').value = '';
+    updatePagePrintControls();
+  }
+}
+
+async function savePagePrintProfile() {
+  if (!activeHost) {
+    showToast('Halaman aktif tidak mendukung mode ini.', 'error');
+    return;
+  }
+
+  const selector = $('receiptSelectorInput').value.trim();
+  const data = await chrome.storage.local.get(RECEIPT_SELECTORS_KEY);
+  const map = getSelectorMap(data[RECEIPT_SELECTORS_KEY]);
+
+  if (selector) {
+    map[activeHost] = selector;
+  } else {
+    delete map[activeHost];
+  }
+
+  await chrome.storage.local.set({ [RECEIPT_SELECTORS_KEY]: map });
+  showToast(selector ? 'Selector tersimpan untuk host ini.' : 'Selector default (auto-detect) dipakai.', 'success');
 }
 
 async function refreshStatus() {
@@ -218,20 +296,49 @@ $('btnTest').addEventListener('click', async () => {
   $('btnTest').textContent = 'Mencetak...';
   const result = await sendToActiveTab({ type: 'TEST_PRINT_FROM_POPUP' });
   $('btnTest').disabled = false;
-  $('btnTest').innerHTML = `
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="6 9 6 2 18 2 18 9"></polyline>
-      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-      <rect x="6" y="14" width="12" height="8"></rect>
-    </svg>
-    Cetak Test Print
-  `;
+  $('btnTest').innerHTML = TEST_PRINT_BUTTON_HTML;
 
   if (result?.success) {
     showToast('Test print berhasil!', 'success');
     await refreshStatus();
   } else {
     showToast(result?.message ?? 'Gagal mencetak.', 'error');
+  }
+});
+
+$('btnSaveSelector').addEventListener('click', savePagePrintProfile);
+
+$('btnPrintPage').addEventListener('click', async () => {
+  if (!activeHost) {
+    showToast('Tab ini tidak mendukung mode cetak halaman.', 'error');
+    return;
+  }
+
+  const button = $('btnPrintPage');
+  button.disabled = true;
+  button.textContent = 'Mencetak...';
+
+  const selector = $('receiptSelectorInput').value.trim();
+  const result = await sendToActiveTab({
+    type: 'PRINT_PAGE_RECEIPT_FROM_POPUP',
+    selector,
+    width: 32,
+  });
+
+  button.disabled = false;
+  button.textContent = PAGE_PRINT_BUTTON_HTML;
+
+  if (result?.success) {
+    showToast(result.message ?? 'Cetak dari halaman berhasil.', 'success');
+    await refreshStatus();
+  } else {
+    showToast(result?.message ?? 'Gagal mencetak dari halaman.', 'error');
+  }
+});
+
+$('receiptSelectorInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    savePagePrintProfile();
   }
 });
 
@@ -259,4 +366,5 @@ document.querySelectorAll('.copy-btn').forEach((button) => {
 (async () => {
   await refreshStatus();
   await loadWhitelist();
+  await loadPagePrintProfile();
 })();

@@ -139,6 +139,10 @@ body {
 .card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-sub); margin-bottom: 4px; }
 .card-value { font-size: 14px; font-weight: 600; color: var(--text); }
 .card-sub   { font-family: var(--mono); font-size: 10px; color: var(--text-sub); margin-top: 2px; }
+.card .section-desc { margin-top: 8px; font-size: 11px; }
+.card .input-group { margin-top: 8px; }
+.card #btnPrintPage { margin-top: 8px; }
+#selectorHost { color: var(--accent2); }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
 .btn-group { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
